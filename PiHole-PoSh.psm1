@@ -1,4 +1,4 @@
-#region Locel Module Management
+#region Local Module Management
     #region Module Functions
         function _Initialize-Module{
             throw "Not implemented."
@@ -21,7 +21,7 @@
                     $Throw
             )
             $ErrorObject  = $null
-            
+
             switch ($Message.GetType().Name ) {
                 "String" {
                     #$ErrorObject = [ModuleException]::Create($Message, $CallStack, $LastFunction, $AdditionalData)
