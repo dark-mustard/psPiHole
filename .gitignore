@@ -6,6 +6,7 @@
 # Custom 
 _PesterOutput/
 *[Tt]estResults.xml
+Example.ps1
 
 # User-specific files
 *.rsuser
