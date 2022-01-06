@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Custom 
+_PesterOutput/
+*[Tt]estResults.xml
+
 # User-specific files
 *.rsuser
 *.suo
@@ -45,7 +49,7 @@ Generated\ Files/
 
 # NUnit
 *.VisualState.xml
-TestResult.xml
+[Tt]estResult.xml
 nunit-*.xml
 
 # Build Results of an ATL Project
