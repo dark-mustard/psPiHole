@@ -1,2 +1,2 @@
-# PiHole-PoSh
-PiHole API wrapper for PowerShell
+# FTL-PS
+PowerShell API wrapper for PiHole
