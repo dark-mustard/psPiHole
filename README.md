@@ -1,6 +1,6 @@
 [<img src="https://wp-cdn.pi-hole.net/wp-content/uploads/2016/12/Vortex-R.png" width="80">](https://pi-hole.net/)
 
-# FTL-PS
+# psPiHole
 PowerShell API wrapper for managing one or more [Pi-Hole](https://pi-hole.net/)'s.
 
 ## Usage
