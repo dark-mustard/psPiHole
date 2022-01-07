@@ -156,7 +156,7 @@
                     HostConfigs = @()
                 }
 
-                $PiHoleHostList | %{
+                $PiHoleHostList | ForEach-Object {
                     $PiHoleHostName = $_
                     $PiHoleHostConfig = $(phNew-PiHoleHostConfig -ComputerName $PiHoleHostName)
                     $Return.HostConfigs+=,$PiHoleHostConfig
