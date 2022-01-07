@@ -1,7 +1,7 @@
 @{
 
     # Script module or binary module file associated with this manifest.
-    RootModule = 'PiHole-PoSh.psm1'
+    RootModule = 'psPiHole.psm1'
 
     # Version number of this module.
     ModuleVersion = '1.0.0'
@@ -22,7 +22,7 @@
     Copyright = '(c) Greg Phillips. All rights reserved.'
 
     # Description of the functionality provided by this module
-    Description = 'Basic PiHole API wrapper.'
+    Description = 'PiHole API wrapper for PowerShell.'
 
     # Minimum version of the Windows PowerShell engine required by this module
     #PowerShellVersion = '5.0'
