@@ -200,7 +200,8 @@
                   Submits an anonymous request to the 'version' endpoint.
 
                   .EXAMPLE
-                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin/api/' -APIEndPoint '' -ClientSecret ''
+                  PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin/api/' -APIEndPoint '' -ClientSecret $APIKey
                   Submits an anonymous request to the 'version' endpoint.
                 #>
                 [CmdletBinding()]
