@@ -1,10 +1,10 @@
 #region Local Module Management
     #region Module Functions
         function _Initialize-Module{
-            throw "Not implemented."
+            #throw "Not implemented."
         }
         function _Dispose-Module{
-            throw "Not implemented."
+           #throw "Not implemented."
         }
         function _Handle-Exception{
             [CmdletBinding()]
@@ -126,7 +126,17 @@
     #endregion
     #region Custom Functions
         #region Configuration
-            function  phNew-PiHoleHostConfig{
+            function phNew-PiHoleHostConfig{
+                <#
+                  .SYNOPSIS
+                  Creates a custom object containing Pi-Hole host information.
+            
+                  .DESCRIPTION
+                  Creates a custom object containing Pi-Hole host information.
+            
+                  .EXAMPLE
+                  PS> phNew-PiHoleHostConfig -Computername '192.168.1.10'
+                #>
                 param(
                     [String]$ComputerName
                 )
@@ -134,7 +144,8 @@
                     $Return = [PSCustomObject]@{
                         HostAPIUrlRoot = "http://$ComputerName/admin/api.php"
                         ClientID       = $ComputerName
-                        ClientSecret = $(ConvertFrom-SecureString -SecureString $(_Get-SecureString -Message "Please provide the API Client Secret for Client ID [$ComputerName]"))
+                        #ClientSecret = $(ConvertFrom-SecureString -SecureString $(_Get-SecureString -Message "Please provide the API Client Secret for Client ID [$ComputerName]"))
+                        ClientSecret   = $(_Get-SecureString -Message "Please provide the API Client Secret for Client ID [$ComputerName]")
                     }
                 } catch {
                     $Return = $null
@@ -143,6 +154,16 @@
                 return $Return
             }
             function phNew-PiHoleHostCollection{
+                <#
+                  .SYNOPSIS
+                  Creates an array of custom objects containing Pi-Hole host information.
+            
+                  .DESCRIPTION
+                  Creates an array of custom objects containing Pi-Hole host information.
+            
+                  .EXAMPLE
+                  PS> phNew-PiHoleHostCollection -PiHoleHostList @('192.168.1.10', '192.168.1.11')
+                #>
                 [Alias("phNew-PiHoleConfig")]
                 [CmdletBinding()]
                 param(
@@ -166,7 +187,22 @@
             }
         #endregion
         #region API
-            function  phInvoke-PiHoleAPI{
+            function phInvoke-PiHoleAPI{
+                <#
+                  .SYNOPSIS
+                  Formats and submits a specified request to the specified host.
+            
+                  .DESCRIPTION
+                  Formats and submits a specified request to the specified host.
+            
+                  .EXAMPLE
+                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin/api/' -APIEndPoint 'version'
+                  Submits an anonymous request to the 'version' endpoint.
+
+                  .EXAMPLE
+                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin/api/' -APIEndPoint '' -ClientSecret ''
+                  Submits an anonymous request to the 'version' endpoint.
+                #>
                 [CmdletBinding()]
                 #[Alias('')]
                 param(
@@ -186,8 +222,8 @@
                     [ValidateNotNullOrEmpty()]
                         $APIEndpoint,
                     [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
-                    [String]
-                    [ValidateNotNullOrEmpty()]
+                    [SecureString]
+                    [ValidateNotNull()]
                         $ClientSecret
                 )
         
@@ -200,7 +236,7 @@
                         $uri = "{0}?{1}" -f $rootURL, $apiEndpoint
                     }
                     "Authenticated" {
-                        $uri = "{0}?{1}&auth={2}" -f $rootURL, $apiEndpoint, $ClientSecret
+                        $uri = "{0}?{1}&auth={2}" -f $rootURL, $apiEndpoint, $(_Decrypt-String -EncryptedString $ClientSecret)
                     }
                     default { 
                         $uri     = $null
