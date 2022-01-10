@@ -200,6 +200,23 @@
                 return $Return
             }
         #endregion
+        #region Other
+            function _Get-PiHoleHostFromUrl{
+                [CmdletBinding()]
+                param(
+                    [Parameter(Mandatory)]
+                    [String]
+                        $HostAPIUrlRoot
+                )
+                $PiHoleHost = $HostAPIUrlRoot.Substring($HostAPIUrlRoot.IndexOf("//") + 2)
+                if($PiHoleHost -like "*:*"){
+                    $PiHoleHost = $PiHoleHost.Substring(0, $PiHoleHost.IndexOf(":") - 1)
+                } else {
+                    $PiHoleHost = $PiHoleHost.Substring(0, $PiHoleHost.IndexOf("/") - 1)
+                }
+                return $PiHoleHost
+            }
+        #endregion
         #region API
             function phInvoke-PiHoleAPI{
                 <#
@@ -244,11 +261,6 @@
                 )
         
                 $ReturnValue=$null
-
-                $details = [PSCustomObject]@{
-                    Function         = $(@(Get-PSCallStack)[1].FunctionName)
-                    ParameterSetName = $($PsCmdlet.ParameterSetName)
-                }
 
                 switch ($PsCmdlet.ParameterSetName) {
                     "Anonymous" {
@@ -474,15 +486,73 @@
                         [SecureString]
                             $ClientSecret
                     )
+                    $Action      = "enable"
                     $APIEndpoint = "api.php"
-                    $APIMethod   = "enable"
+                    $APIMethod   = "{0}" -f $Action
                     $Params = @{
                         HostAPIUrlRoot = $HostAPIUrlRoot
                         APIEndpoint    = $APIEndpoint
                         APIMethod      = $APIMethod
                         ClientSecret   = $ClientSecret
                     }
-                    return (phInvoke-PiHoleAPI @Params)
+                    $PiHoleHost = _Get-PiHoleHostFromUrl -HostAPIUrlRoot $HostAPIUrlRoot
+                    $Result     = phInvoke-PiHoleAPI @Params
+                    $Return     = [PSCustomObject]@{
+                        PiHoleHost = $PiHoleHost
+                        Action     = $Action
+                        Result     = $Result
+                    }
+                    return $Return
+                }
+                function phDisable-PiHole{
+                    <#
+                    .SYNOPSIS
+                    Disables filtering on the specified PiHole host.
+                
+                    .DESCRIPTION
+                    Disables filtering on the specified PiHole host.
+                
+                    .EXAMPLE
+                    PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                    PS> phDisable-PiHole -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey
+                    Disables filtering on the host with the ip 192.168.1.10.
+                
+                    .EXAMPLE
+                    PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                    PS> phDisable-PiHole -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -Seconds 5
+                    Disables filtering for 5 seconds on the host with the ip 192.168.1.10.
+
+                    #>
+                    [CmdletBinding()]
+                    #[Alias('')]
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot,
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [SecureString]
+                            $ClientSecret,
+                        [Parameter()]
+                        [Int32]
+                            $Seconds = 0
+                    )
+                    $Action      = "disable"
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = "{0}{1}" -f $Action, $(if($Seconds -gt 0){ "=$Seconds" })
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                        ClientSecret   = $ClientSecret
+                    }
+                    $PiHoleHost = _Get-PiHoleHostFromUrl -HostAPIUrlRoot $HostAPIUrlRoot
+                    $Result     = phInvoke-PiHoleAPI @Params
+                    $Return     = [PSCustomObject]@{
+                        PiHoleHost = $PiHoleHost
+                        Action     = $Action
+                        Result     = $Result
+                    }
+                    return $Return
                 }
             #endregion
             #region Manage Lists
