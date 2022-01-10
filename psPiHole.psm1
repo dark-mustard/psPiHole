@@ -449,6 +449,42 @@
                     return (phInvoke-PiHoleAPI @Params)
                 }
             #endregion
+            #region Enable / Disable
+                function phEnable-PiHole{
+                    <#
+                    .SYNOPSIS
+                    Enables filtering on the specified PiHole host.
+                
+                    .DESCRIPTION
+                    Enables filtering on the specified PiHole host.
+                
+                    .EXAMPLE
+                    PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                    PS> phEnable-PiHole -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey
+                    Enables filtering on the host with the ip 192.168.1.10.
+
+                    #>
+                    [CmdletBinding()]
+                    #[Alias('')]
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot,
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [SecureString]
+                            $ClientSecret
+                    )
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = "enable"
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                        ClientSecret   = $ClientSecret
+                    }
+                    return (phInvoke-PiHoleAPI @Params)
+                }
+            #endregion
             #region Manage Lists
                 function phGet-PiHoleList{
                     <#
