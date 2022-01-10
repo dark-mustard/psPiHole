@@ -448,6 +448,8 @@
                     }
                     return (phInvoke-PiHoleAPI @Params)
                 }
+            #endregion
+            #region Manage Lists
                 function phGet-PiHoleList{
                     <#
                       .SYNOPSIS
@@ -458,12 +460,12 @@
                 
                       .EXAMPLE
                       PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
-                      PS> phGet-PiHoleDataLast10Mins -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List black
+                      PS> phGet-PiHoleList -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List black
                       Pulls blacklist entries from the host with the ip 192.168.1.10.
 
                       .EXAMPLE
                       PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
-                      PS> phGet-PiHoleDataLast10Mins -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List regex_white 
+                      PS> phGet-PiHoleList -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List regex_white 
                       Pulls regex whitelist entries from the host with the ip 192.168.1.10.
                     #>
                     [CmdletBinding()]
@@ -472,12 +474,12 @@
                         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
                         [String]
                             $HostAPIUrlRoot,
-                        [Parameter(Mandatory)]
-                        [PiHoleListType]
-                            $List,
                         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
                         [SecureString]
-                            $ClientSecret
+                            $ClientSecret,
+                        [Parameter(Mandatory)]
+                        [PiHoleListType]
+                            $List
                     )
                     $APIEndpoint = "api.php"
                     $APIMethod   = "list={0}" -f $List.ToString()
@@ -488,7 +490,97 @@
                         ClientSecret   = $ClientSecret
                     }
                     return @((phInvoke-PiHoleAPI @Params) | Select-Object @{ Name="List"; Expression={ $List.ToString() } }, `
-                                            @{ Name="Entries"; Expression={ $_.data } })
+                                                                          @{ Name="Entries"; Expression={ $_.data } })
+                }
+                function phNew-PiHoleListEntry{
+                    <#
+                      .SYNOPSIS
+                      Adds an entry to the specified list on the specified host.
+                
+                      .DESCRIPTION
+                      Adds an entry to the specified list on the specified host.
+                
+                      .EXAMPLE
+                      PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                      PS> phNew-PiHoleListEntry -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List black -Entry 'test.local'
+                      Adds 'test.local' to the blacklist on the host with the ip 192.168.1.10.
+
+                      .EXAMPLE
+                      PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                      PS> phNew-PiHoleListEntry -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List regex_white -Entry '(\.|^)test\.local$'
+                      Adds '(\.|^)test\.local$' to the regex whitelist on the host with the ip 192.168.1.10.
+                    #>
+                    [CmdletBinding()]
+                    #[Alias('')]
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot,
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [SecureString]
+                            $ClientSecret,
+                        [Parameter(Mandatory)]
+                        [PiHoleListType]
+                            $List,
+                        [Parameter(Mandatory)]
+                        [string]
+                        [ValidateNotNullOrEmpty()]
+                            $Entry
+                    )
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = "list={0}&add={1}" -f $List.ToString(), $Entry
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                        ClientSecret   = $ClientSecret
+                    }
+                    return (phInvoke-PiHoleAPI @Params)
+                }
+                function phRemove-PiHoleListEntry{
+                    <#
+                      .SYNOPSIS
+                      Removes an entry from the specified list on the specified host.
+                
+                      .DESCRIPTION
+                      Removes an entry from the specified list on the specified host.
+                
+                      .EXAMPLE
+                      PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                      PS> phRemove-PiHoleListEntry -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List black -Entry 'test.local'
+                      Removes 'test.local' to the blacklist on the host with the ip 192.168.1.10.
+
+                      .EXAMPLE
+                      PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                      PS> phRemove-PiHoleListEntry -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List regex_white -Entry '(\.|^)test\.local$'
+                      Removes '(\.|^)test\.local$' to the regex whitelist on the host with the ip 192.168.1.10.
+                    #>
+                    [CmdletBinding()]
+                    #[Alias('')]
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot,
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [SecureString]
+                            $ClientSecret,
+                        [Parameter(Mandatory)]
+                        [PiHoleListType]
+                            $List,
+                        [Parameter(Mandatory)]
+                        [string]
+                        [ValidateNotNullOrEmpty()]
+                            $Entry
+                    )
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = "list={0}&sub={1}" -f $List.ToString(), $Entry
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                        ClientSecret   = $ClientSecret
+                    }
+                    return (phInvoke-PiHoleAPI @Params)
                 }
             #endregion
         #endregion
