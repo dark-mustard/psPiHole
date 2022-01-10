@@ -119,9 +119,11 @@
 #endregion
 #region psPiHole
     #region Types and Enums
-        enum PiHoleListTypes{
+        enum PiHoleListType{
             white
+            regex_white
             black
+            regex_black
         }
     #endregion
     #region Custom Functions
@@ -138,15 +140,27 @@
                   PS> phNew-PiHoleHostConfig -Computername '192.168.1.10'
                 #>
                 param(
-                    [String]$ComputerName
+                    [Parameter(Mandatory)]
+                    [String]
+                        $ComputerName,
+                    [Parameter()]
+                    [Int32]
+                        $Port = 80,
+                    [Parameter()]
+                    [switch]
+                        $Https
                 )
                 try{
                     $Return = [PSCustomObject]@{
-                        HostAPIUrlRoot = "http://$ComputerName/admin/api.php"
+                        HTTPType       = $(if($Https){ "https" } else { "http" })
+                        Port           = $Port
+                        #HostAPIUrlRoot = "http://$ComputerName/admin/api.php"
                         ClientID       = $ComputerName
                         #ClientSecret = $(ConvertFrom-SecureString -SecureString $(_Get-SecureString -Message "Please provide the API Client Secret for Client ID [$ComputerName]"))
                         ClientSecret   = $(_Get-SecureString -Message "Please provide the API Client Secret for Client ID [$ComputerName]")
                     }
+                    $HostAPIUrlRoot = "{0}://{1}:{2}/admin" -f $Return.HTTPType, $Return.ClientId, $Return.Port
+                    $Return | Add-Member -MemberType NoteProperty -Name "HostAPIUrlRoot" -Value $HostAPIUrlRoot
                 } catch {
                     $Return = $null
                     throw $_
@@ -196,13 +210,13 @@
                   Formats and submits a specified request to the specified host.
             
                   .EXAMPLE
-                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin/api/' -APIEndPoint 'version'
-                  Submits an anonymous request to the 'version' endpoint.
+                  PS> phInvoke-PiHoleAPI -HostAPIUrlRoot 'http://192.168.1.10/admin' -APIEndPoint 'version'
+                  Submits an anonymous request to the 'api.php' endpoint calling the 'version' method.
 
                   .EXAMPLE
                   PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
-                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin/api/' -APIEndPoint '' -ClientSecret $APIKey
-                  Submits an anonymous request to the 'version' endpoint.
+                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin' -APIEndPoint 'api_db.php' -APIMethod 'getDBfilesize' -ClientSecret $APIKey
+                  Submits an authenticated request to the 'api_db.php' endpoint calling the 'getDBfilesize' method.
                 #>
                 [CmdletBinding()]
                 #[Alias('')]
@@ -211,17 +225,18 @@
                     [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
                     [String]
                     [ValidateNotNullOrEmpty()]
-                        $ClientID,
-                    [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Anonymous")]
-                    [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
-                    [String]
-                    [ValidateNotNullOrEmpty()]
                         $HostAPIUrlRoot,
+                    [Parameter(ValueFromPipelineByPropertyName, ParameterSetName = "Anonymous")]
+                    [Parameter(ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
+                    [String]
+                    [ValidateNotNullOrEmpty()]
+                    [ValidateSet('api.php', 'api_db.php')]
+                        $APIEndpoint = 'api.php',
                     [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Anonymous")]
                     [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
                     [String]
                     [ValidateNotNullOrEmpty()]
-                        $APIEndpoint,
+                        $APIMethod,
                     [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
                     [SecureString]
                     [ValidateNotNull()]
@@ -232,16 +247,28 @@
 
                 $rootURL = $HostAPIUrlRoot
 
+                $details = [PSCustomObject]@{
+                    Function         = $(@(Get-PSCallStack)[1].FunctionName)
+                    ParameterSetName = $($PsCmdlet.ParameterSetName)
+                }
+
                 switch ($PsCmdlet.ParameterSetName) {
                     "Anonymous" {
-                        $uri = "{0}?{1}" -f $rootURL, $apiEndpoint
+                        $uri = "{0}/{1}?{2}" -f $HostAPIUrlRoot, $APIEndpoint, $APIMethod
                     }
                     "Authenticated" {
-                        $uri = "{0}?{1}&auth={2}" -f $rootURL, $apiEndpoint, $(_Decrypt-String -EncryptedString $ClientSecret)
+                        $auth = _Decrypt-String -EncryptedString $ClientSecret
+                        $uri = "{0}/{1}?{2}&auth={3}" -f $HostAPIUrlRoot, $APIEndpoint, $APIMethod, $auth
                     }
                     default { 
                         $uri     = $null
-                        throw ("Unhandled parameter set encountered. {0} 'Function':'{2}', 'ParameterSetName':'{3}' {1}" -f "[", "}", $MyInvocation.MyCommand.Name, $PsCmdlet.ParameterSetName)
+                        $details = [PSCustomObject]@{
+                            Function         = $MyInvocation.MyCommand.Name
+                            #Function         = $(@(Get-PSCallStack)[0].FunctionName)
+                            #Function         = $(@(Get-PSCallStack)[1].FunctionName)
+                            ParameterSetName = $($PsCmdlet.ParameterSetName)
+                        }
+                        throw ("Unhandled parameter set encountered. {0}" -f $($details | ConvertTo-Json -Compress))
                     }
                 }
 
@@ -266,47 +293,117 @@
                 return $ReturnValue
             }
             #region Server Status
-                function  phGet-PiHoleVersion{
+                function phGet-PiHoleStatus{
+                    <#
+                      .SYNOPSIS
+                      Gets the current status of the specified PiHole host.
+                
+                      .DESCRIPTION
+                      Gets the current status of the specified PiHole host.
+                
+                      .EXAMPLE
+                      PS> phGet-PiHoleStatus -HostAPIUrlRoot 'http://192.168.1.10/admin'
+                      Pulls the current status of the host with the ip 192.168.1.10.
+
+                      .EXAMPLE
+                      PS> phGet-PiHoleStatus -HostAPIUrlRoot 'http://192.168.1.10/admin' -Database
+                      Pulls the current database status of the host with the ip 192.168.1.10.
+                    #>
                     param(
                         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
                         [String]
-                            $ClientID,
+                            $HostAPIUrlRoot,
+                        [Parameter()]
+                        [Switch]
+                            $Database
+                    )
+                    $APIEndpoint = if($Database) { "api_db.php" } else { "api.php" }
+                    $APIMethod   = 'status'
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                    }
+                    phInvoke-PiHoleAPI @Params
+                }
+                function phGet-PiHoleVersion{
+                    <#
+                      .SYNOPSIS
+                      Gets the current version of the specified PiHole host.
+                
+                      .DESCRIPTION
+                      Gets the current version of the specified PiHole host.
+                
+                      .EXAMPLE
+                      PS> phGet-PiHoleVersion -HostAPIUrlRoot 'http://192.168.1.10/admin'
+                      Pulls the current version of the host with the ip 192.168.1.10.
+
+                      .EXAMPLE
+                      PS> phGet-PiHoleVersion -HostAPIUrlRoot 'http://192.168.1.10/admin' -Details
+                      Pulls the full current version details of the host with the ip 192.168.1.10.
+                    #>
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot,
+                        [Parameter()]
+                        [Switch]
+                            $Details
+                    )
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = if($Details){ 'versions' } else { 'version' }
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                    }
+                    phInvoke-PiHoleAPI @Params
+                }
+                function phGet-PiHoleType{
+                    <#
+                      .SYNOPSIS
+                      Gets the current type of the specified PiHole host.
+                
+                      .DESCRIPTION
+                      Gets the current type of the specified PiHole host.
+                
+                      .EXAMPLE
+                      PS> phGet-PiHoleType -HostAPIUrlRoot 'http://192.168.1.10/admin'
+                      Pulls the current type of the host with the ip 192.168.1.10.
+                    #>
+                    param(
                         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
                         [String]
                             $HostAPIUrlRoot
                     )
-                    $APIEndpoint = 'version'
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = 'type'
                     $Params = @{
-                        ClientID               = $ClientID
-                        HostAPIUrlRoot         = $HostAPIUrlRoot
-                        APIEndpoint            = $APIEndpoint
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
                     }
                     phInvoke-PiHoleAPI @Params
                 }
-                function  phGet-PiHoleType{
-                    param(
-                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
-                        [String]
-                            $ClientID,
-                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
-                        [String]
-                            $HostAPIUrlRoot
-                    )
-                    $APIEndpoint = 'type'
-                    $Params = @{
-                        ClientID               = $ClientID
-                        HostAPIUrlRoot         = $HostAPIUrlRoot
-                        APIEndpoint            = $APIEndpoint
-                    }
-                    phInvoke-PiHoleAPI @Params
-                }
-                function  phGet-PiHoleSummary{
+                function phGet-PiHoleSummary{
+                    <#
+                      .SYNOPSIS
+                      Gets the current host summary of the specified PiHole host.
+                
+                      .DESCRIPTION
+                      Gets the current host summary of the specified PiHole host.
+                
+                      .EXAMPLE
+                      PS> phGet-PiHoleType -HostAPIUrlRoot 'http://192.168.1.10/admin'
+                      Pulls the current host summary of the host with the ip 192.168.1.10.
+
+                      .EXAMPLE
+                      PS> phGet-PiHoleType -HostAPIUrlRoot 'http://192.168.1.10/admin' -Raw
+                      Pulls the current host summary (unformated) of the host with the ip 192.168.1.10.
+                    #>
                     [CmdletBinding()]
                     #[Alias('')]
                     param(
-                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
-                        [String]
-                            $ClientID,
                         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
                         [String]
                             $HostAPIUrlRoot,
@@ -314,11 +411,12 @@
                         [Switch]
                             $Raw
                     )
-                    $APIEndpoint=if(-Not $Raw){ "summary" } else { "summaryRaw" }
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = if($Raw){ "summaryRaw" } else { "summary" }
                     $Params = @{
-                        ClientID               = $ClientID
-                        HostAPIUrlRoot         = $HostAPIUrlRoot
-                        APIEndpoint            = $APIEndpoint
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
                     }
                     phInvoke-PiHoleAPI @Params
                 }
