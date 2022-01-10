@@ -245,8 +245,6 @@
         
                 $ReturnValue=$null
 
-                $rootURL = $HostAPIUrlRoot
-
                 $details = [PSCustomObject]@{
                     Function         = $(@(Get-PSCallStack)[1].FunctionName)
                     ParameterSetName = $($PsCmdlet.ParameterSetName)
@@ -324,7 +322,7 @@
                         APIEndpoint    = $APIEndpoint
                         APIMethod      = $APIMethod
                     }
-                    phInvoke-PiHoleAPI @Params
+                    return (phInvoke-PiHoleAPI @Params)
                 }
                 function phGet-PiHoleVersion{
                     <#
@@ -357,7 +355,7 @@
                         APIEndpoint    = $APIEndpoint
                         APIMethod      = $APIMethod
                     }
-                    phInvoke-PiHoleAPI @Params
+                    return (phInvoke-PiHoleAPI @Params)
                 }
                 function phGet-PiHoleType{
                     <#
@@ -383,7 +381,7 @@
                         APIEndpoint    = $APIEndpoint
                         APIMethod      = $APIMethod
                     }
-                    phInvoke-PiHoleAPI @Params
+                    return (phInvoke-PiHoleAPI @Params)
                 }
                 function phGet-PiHoleSummary{
                     <#
@@ -418,10 +416,11 @@
                         APIEndpoint    = $APIEndpoint
                         APIMethod      = $APIMethod
                     }
-                    phInvoke-PiHoleAPI @Params
+                    return (phInvoke-PiHoleAPI @Params)
                 }
-                #overTimeData10mins
-                function phGet-PiHoleDataLast10Mins{
+            #endregion
+            #region Data & Stats
+                function phGet-PiHoleDataLast10Min{
                     <#
                       .SYNOPSIS
                       Gets the current host summary of the specified PiHole host.
@@ -447,7 +446,49 @@
                         APIEndpoint    = $APIEndpoint
                         APIMethod      = $APIMethod
                     }
-                    phInvoke-PiHoleAPI @Params
+                    return (phInvoke-PiHoleAPI @Params)
+                }
+                function phGet-PiHoleList{
+                    <#
+                      .SYNOPSIS
+                      Gets the list entries of the specified list on the specified PiHole host.
+                
+                      .DESCRIPTION
+                      Gets the list entries of the specified list on the specified PiHole host.
+                
+                      .EXAMPLE
+                      PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                      PS> phGet-PiHoleDataLast10Mins -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List black
+                      Pulls blacklist entries from the host with the ip 192.168.1.10.
+
+                      .EXAMPLE
+                      PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                      PS> phGet-PiHoleDataLast10Mins -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey -List regex_white 
+                      Pulls regex whitelist entries from the host with the ip 192.168.1.10.
+                    #>
+                    [CmdletBinding()]
+                    #[Alias('')]
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot,
+                        [Parameter(Mandatory)]
+                        [PiHoleListType]
+                            $List,
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [SecureString]
+                            $ClientSecret
+                    )
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = "list={0}" -f $List.ToString()
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                        ClientSecret   = $ClientSecret
+                    }
+                    return @((phInvoke-PiHoleAPI @Params) | Select-Object @{ Name="List"; Expression={ $List.ToString() } }, `
+                                            @{ Name="Entries"; Expression={ $_.data } })
                 }
             #endregion
         #endregion
