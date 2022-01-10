@@ -420,6 +420,35 @@
                     }
                     phInvoke-PiHoleAPI @Params
                 }
+                #overTimeData10mins
+                function phGet-PiHoleDataLast10Mins{
+                    <#
+                      .SYNOPSIS
+                      Gets the current host summary of the specified PiHole host.
+                
+                      .DESCRIPTION
+                      Gets the current host summary of the specified PiHole host.
+                
+                      .EXAMPLE
+                      PS> phGet-PiHoleDataLast10Mins -HostAPIUrlRoot 'http://192.168.1.10/admin'
+                      Pulls the last 10 minutes of data from the host with the ip 192.168.1.10.
+                    #>
+                    [CmdletBinding()]
+                    #[Alias('')]
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot
+                    )
+                    $APIEndpoint = "api.php"
+                    $APIMethod   = "overTimeData10mins"
+                    $Params = @{
+                        HostAPIUrlRoot = $HostAPIUrlRoot
+                        APIEndpoint    = $APIEndpoint
+                        APIMethod      = $APIMethod
+                    }
+                    phInvoke-PiHoleAPI @Params
+                }
             #endregion
         #endregion
     #endregion
