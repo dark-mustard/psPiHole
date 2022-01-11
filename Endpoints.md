@@ -45,8 +45,8 @@
   - [x] GET http://`$PiHoleHost`/admin/api.php?disable&auth=`$apiKey`
   - [x] GET http://`$PiHoleHost`/admin/api.php?disable=$Seconds&auth=`$apiKey`
 - [x] Managing Lists
-  - [x] GET http://`$PiHoleHost`/admin/api.php?list=`$list`
-  - [x] GET http://`$PiHoleHost`/admin/api.php?list=`$list`&add=`$entry`
-  - [x] GET http://`$PiHoleHost`/admin/api.php?list=`$list`&sub=`$entry`
+  - [x] GET http://`$PiHoleHost`/admin/api.php?list=`$list`&auth=`$apiKey`
+  - [x] GET http://`$PiHoleHost`/admin/api.php?list=`$list`&add=`$entry`&auth=`$apiKey`
+  - [x] GET http://`$PiHoleHost`/admin/api.php?list=`$list`&sub=`$entry`&auth=`$apiKey`
 - [ ] Managing DHCP Leases
   - [ ] GET http://`$PiHoleHost`/admin/api.php?delete_lease=`$dhcpLease`&auth=`$apiKey`
