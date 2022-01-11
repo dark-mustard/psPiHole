@@ -339,7 +339,7 @@
                     )
                     begin{
                         $Return      = @()
-                        $APIEndpoint = if($Database) { ([PiHoleAPIEndpoints]::api_db) } else { api }
+                        $APIEndpoint = if($Database) { ([PiHoleAPIEndpoints]::api_db) } else { ([PiHoleAPIEndpoints]::api) }
                         $APIMethod   = 'status'
                     }
                     process{
@@ -465,6 +465,47 @@
                             HostAPIUrlRoot = $HostAPIUrlRoot
                             APIEndpoint    = $APIEndpoint
                             APIMethod      = $APIMethod
+                        }
+                        $Return += (_Invoke-PiHoleAPI @Params)
+                    }
+                    end {
+                        return $Return 
+                    }
+                }
+                function phGet-DBFileSize{
+                    <#
+                      .SYNOPSIS
+                      Gets the database file size (in bytes) of the specified PiHole host.
+                
+                      .DESCRIPTION
+                      Gets the database file size (in bytes) of the specified PiHole host.
+                
+                      .EXAMPLE
+                      PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
+                      PS> phGet-DBFileSize -HostAPIUrlRoot 'http://192.168.1.10/admin' -ClientSecret $APIKey
+                      Pulls the current database file size for the host with the ip 192.168.1.10.
+                    #>
+                    [CmdletBinding()]
+                    #[Alias('')]
+                    param(
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [String]
+                            $HostAPIUrlRoot,
+                        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+                        [SecureString]
+                            $ClientSecret
+                    )
+                    begin {
+                        $Return      = @()
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api_db)
+                        $APIMethod   = "getDBfilesize"
+                    }
+                    process {
+                        $Params = @{
+                            HostAPIUrlRoot = $HostAPIUrlRoot
+                            APIEndpoint    = $APIEndpoint
+                            APIMethod      = $APIMethod
+                            ClientSecret   = $ClientSecret
                         }
                         $Return += (_Invoke-PiHoleAPI @Params)
                     }
