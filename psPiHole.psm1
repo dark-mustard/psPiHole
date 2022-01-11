@@ -119,6 +119,10 @@
 #endregion
 #region psPiHole
     #region Types and Enums
+        enum PiHoleAPIEndPoints{
+            api
+            api_db
+        }
         enum PiHoleListType{
             white
             regex_white
@@ -127,6 +131,34 @@
         }
     #endregion
     #region Custom Functions
+        #region Misc
+            function _Get-PiHoleAPIEndpointName{
+                [CmdletBinding()]
+                [Alias("gphen")]
+                param(
+                    [Parameter(Mandatory, Position=0)]
+                    [PiHoleAPIEndPoints]
+                        $APIEndpoint
+                )
+                $Return = "{0}.php" -f $APIEndpoint.ToString()
+                return $Return
+            }
+            function _Get-PiHoleHostFromUrl{
+                [CmdletBinding()]
+                param(
+                    [Parameter(Mandatory, Position=0)]
+                    [String]
+                        $HostAPIUrlRoot
+                )
+                $PiHoleHost = $HostAPIUrlRoot.Substring($HostAPIUrlRoot.IndexOf("//") + 2)
+                if($PiHoleHost -like "*:*"){
+                    $PiHoleHost = $PiHoleHost.Substring(0, $PiHoleHost.IndexOf(":"))
+                } else {
+                    $PiHoleHost = $PiHoleHost.Substring(0, $PiHoleHost.IndexOf("/"))
+                }
+                return $PiHoleHost
+            }
+        #endregion
         #region Configuration
             function phNew-PiHoleHostConfig{
                 <#
@@ -154,9 +186,7 @@
                     $Return = [PSCustomObject]@{
                         HTTPType       = $(if($Https){ "https" } else { "http" })
                         Port           = $Port
-                        #HostAPIUrlRoot = "http://$ComputerName/admin/api.php"
                         ClientID       = $ComputerName
-                        #ClientSecret = $(ConvertFrom-SecureString -SecureString $(_Get-SecureString -Message "Please provide the API Client Secret for Client ID [$ComputerName]"))
                         ClientSecret   = $(_Get-SecureString -Message "Please provide the API Client Secret for Client ID [$ComputerName]")
                     }
                     $HostAPIUrlRoot = "{0}://{1}:{2}/admin" -f $Return.HTTPType, $Return.ClientId, $Return.Port
@@ -200,25 +230,8 @@
                 return $Return
             }
         #endregion
-        #region Other
-            function _Get-PiHoleHostFromUrl{
-                [CmdletBinding()]
-                param(
-                    [Parameter(Mandatory)]
-                    [String]
-                        $HostAPIUrlRoot
-                )
-                $PiHoleHost = $HostAPIUrlRoot.Substring($HostAPIUrlRoot.IndexOf("//") + 2)
-                if($PiHoleHost -like "*:*"){
-                    $PiHoleHost = $PiHoleHost.Substring(0, $PiHoleHost.IndexOf(":"))
-                } else {
-                    $PiHoleHost = $PiHoleHost.Substring(0, $PiHoleHost.IndexOf("/"))
-                }
-                return $PiHoleHost
-            }
-        #endregion
         #region API
-            function phInvoke-PiHoleAPI{
+            function _Invoke-PiHoleAPI{
                 <#
                   .SYNOPSIS
                   Formats and submits a specified request to the specified host.
@@ -227,12 +240,12 @@
                   Formats and submits a specified request to the specified host.
             
                   .EXAMPLE
-                  PS> phInvoke-PiHoleAPI -HostAPIUrlRoot 'http://192.168.1.10/admin' -APIEndPoint 'version'
+                  PS> _Invoke-PiHoleAPI -HostAPIUrlRoot 'http://192.168.1.10/admin' -APIEndPoint 'version'
                   Submits an anonymous request to the 'api.php' endpoint calling the 'version' method.
 
                   .EXAMPLE
                   PS> $APIKey = Read-Host -AsSecureString -Prompt "Please provide your API key."
-                  PS> phInvoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin' -APIEndPoint 'api_db.php' -APIMethod 'getDBfilesize' -ClientSecret $APIKey
+                  PS> _Invoke-PiHoleAPI -ClientID 192.168.1.10 -HostAPIUrlRoot 'http://192.168.1.10/admin' -APIEndPoint 'api_db.php' -APIMethod 'getDBfilesize' -ClientSecret $APIKey
                   Submits an authenticated request to the 'api_db.php' endpoint calling the 'getDBfilesize' method.
                 #>
                 [CmdletBinding()]
@@ -245,10 +258,8 @@
                         $HostAPIUrlRoot,
                     [Parameter(ValueFromPipelineByPropertyName, ParameterSetName = "Anonymous")]
                     [Parameter(ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
-                    [String]
-                    [ValidateNotNullOrEmpty()]
-                    [ValidateSet('api.php', 'api_db.php')]
-                        $APIEndpoint = 'api.php',
+                    [PiHoleAPIEndPoints]
+                        $APIEndpoint = ([PiHoleAPIEndPoints]::api),
                     [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Anonymous")]
                     [Parameter(Mandatory, ValueFromPipelineByPropertyName, ParameterSetName = "Authenticated")]
                     [String]
@@ -261,15 +272,16 @@
                 )
                 begin{
                     $Return = @()
+                    $APIEndpointName = _Get-PiHoleAPIEndpointName $APIEndpoint
                 }
                 process{
                     switch ($PsCmdlet.ParameterSetName) {
                         "Anonymous" {
-                            $uri = "{0}/{1}?{2}" -f $HostAPIUrlRoot, $APIEndpoint, $APIMethod
+                            $uri = "{0}/{1}?{2}" -f $HostAPIUrlRoot, $APIEndpointName, $APIMethod
                         }
                         "Authenticated" {
                             $auth = _Decrypt-String -EncryptedString $ClientSecret
-                            $uri = "{0}/{1}?{2}&auth={3}" -f $HostAPIUrlRoot, $APIEndpoint, $APIMethod, $auth
+                            $uri = "{0}/{1}?{2}&auth={3}" -f $HostAPIUrlRoot, $APIEndpointName, $APIMethod, $auth
                         }
                         default { 
                             $uri     = $null
@@ -327,7 +339,7 @@
                     )
                     begin{
                         $Return      = @()
-                        $APIEndpoint = if($Database) { "api_db.php" } else { "api.php" }
+                        $APIEndpoint = if($Database) { ([PiHoleAPIEndpoints]::api_db) } else { api }
                         $APIMethod   = 'status'
                     }
                     process{
@@ -336,7 +348,7 @@
                             APIEndpoint    = $APIEndpoint
                             APIMethod      = $APIMethod
                         }
-                        $Return += (phInvoke-PiHoleAPI @Params)
+                        $Return += (_Invoke-PiHoleAPI @Params)
                     }
                     end{
                         return $Return
@@ -368,7 +380,7 @@
                     )
                     begin{
                         $Return      = @()
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = if($Details){ 'versions' } else { 'version' }
                     }
                     process{
@@ -377,7 +389,7 @@
                             APIEndpoint    = $APIEndpoint
                             APIMethod      = $APIMethod
                         }
-                        $Return += (phInvoke-PiHoleAPI @Params)
+                        $Return += (_Invoke-PiHoleAPI @Params)
                     }
                     end{
                         return $Return
@@ -402,7 +414,7 @@
                     )
                     begin {
                         $Return      = @()
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = 'type'
                     }
                     process {
@@ -411,7 +423,7 @@
                             APIEndpoint    = $APIEndpoint
                             APIMethod      = $APIMethod
                         }
-                        $Return += (phInvoke-PiHoleAPI @Params)
+                        $Return += (_Invoke-PiHoleAPI @Params)
                     }
                     end {
                         return $Return 
@@ -445,7 +457,7 @@
                     )
                     begin {
                         $Return      = @()
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = if($Raw){ "summaryRaw" } else { "summary" }
                     }
                     process {
@@ -454,7 +466,7 @@
                             APIEndpoint    = $APIEndpoint
                             APIMethod      = $APIMethod
                         }
-                        $Return += (phInvoke-PiHoleAPI @Params)
+                        $Return += (_Invoke-PiHoleAPI @Params)
                     }
                     end {
                         return $Return 
@@ -483,7 +495,7 @@
                     )
                     begin {
                         $Return      = @()
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = "overTimeData10mins"
                     }
                     process {
@@ -492,7 +504,7 @@
                             APIEndpoint    = $APIEndpoint
                             APIMethod      = $APIMethod
                         }
-                        $Return += (phInvoke-PiHoleAPI @Params)
+                        $Return += (_Invoke-PiHoleAPI @Params)
                     }
                     end {
                         return $Return 
@@ -527,7 +539,7 @@
                     begin {
                         $Return      = @()
                         $Action      = "Enable Filtering"
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = "enable"
                     }
                     process {
@@ -538,7 +550,7 @@
                             APIMethod      = $APIMethod
                             ClientSecret   = $ClientSecret
                         }
-                        $Result = (phInvoke-PiHoleAPI @Params)
+                        $Result = (_Invoke-PiHoleAPI @Params)
                         $Return += ([PSCustomObject]@{
                             PiHoleHost = $PiHoleHost
                             Action     = $Action
@@ -586,7 +598,7 @@
                     begin {
                         $Return      = @()
                         $Action      = "Disable Filtering"
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = "disable{0}" -f $(if($Seconds -gt 0){ "=$Seconds" })
                     }
                     process {
@@ -597,7 +609,7 @@
                             APIMethod      = $APIMethod
                             ClientSecret   = $ClientSecret
                         }
-                        $Result = (phInvoke-PiHoleAPI @Params)
+                        $Result = (_Invoke-PiHoleAPI @Params)
                         $Return += ([PSCustomObject]@{
                             PiHoleHost = $PiHoleHost
                             Action     = $Action
@@ -645,7 +657,7 @@
                     )
                     begin {
                         $Return      = @()
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = "list={0}" -f $List.ToString()
                     }
                     process {
@@ -656,7 +668,7 @@
                             APIMethod      = $APIMethod
                             ClientSecret   = $ClientSecret
                         }
-                        $Result = (phInvoke-PiHoleAPI @Params)
+                        $Result = (_Invoke-PiHoleAPI @Params)
                         $Return += ([PSCustomObject]@{
                             PiHoleHost = $PiHoleHost
                             Action     = $Action
@@ -709,7 +721,7 @@
                     begin {
                         $Return      = @()
                         $Action      = "New List Entry"
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = "list={0}&add={1}" -f $List.ToString(), $Entry
                         $Params = @{}
                     }
@@ -721,7 +733,7 @@
                             APIMethod      = $APIMethod
                             ClientSecret   = $ClientSecret
                         }
-                        $Result = (phInvoke-PiHoleAPI @Params)
+                        $Result = (_Invoke-PiHoleAPI @Params)
                         $Return += ([PSCustomObject]@{
                             PiHoleHost = $PiHoleHost
                             Action     = $Action
@@ -775,7 +787,7 @@
                     begin {
                         $Return      = @()
                         $Action      = "Remove List Entry"
-                        $APIEndpoint = "api.php"
+                        $APIEndpoint = ([PiHoleAPIEndpoints]::api)
                         $APIMethod   = "list={0}&sub={1}" -f $List.ToString(), $Entry
                     }
                     process {
@@ -786,7 +798,7 @@
                             APIMethod      = $APIMethod
                             ClientSecret   = $ClientSecret
                         }
-                        $Result = (phInvoke-PiHoleAPI @Params)
+                        $Result = (_Invoke-PiHoleAPI @Params)
                         $Return += ([PSCustomObject]@{
                             PiHoleHost = $PiHoleHost
                             Action     = $Action
