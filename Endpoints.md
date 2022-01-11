@@ -1,4 +1,18 @@
-## Known API Methods
+# PiHole API
+## Endpoints
+A list of API endpoints can be found by running the following command on the PiHole server:
+```bash
+find /var/www/html/admin -name "api*.php"
+```
+
+| Endpoint      | Accessibility | Notes |
+|:--------------|:-------------:|:------|
+| `api.php`     | Active        | Primary endpoint for API requests. |
+| `api_FTL.php` | Inactive      | Contains back-end functions passed through from `api.php`. **Not to be called directly.** |
+| `api_db.php`  | Deprecated    | Contains a mix of back-end functions and unique and directly accessible functions. |
+ 
+## API Methods
+The following was derived by reading through the endpoint php files listed above...just a first pass so most likely several that are wrong / missing.
 - [x] Get Host Info
   - [x] Get Version
     - [x] GET http://`$PiHoleHost`/admin/api.php?version
